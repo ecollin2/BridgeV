@@ -11,7 +11,7 @@ import time
 contract_info = "contract_info.json"
 
 admin_address = "0x4d9BD0fa70042aB46721cDD0B00Ed64093A48ea0"
-admin_private_key = d43a2a59e59104117f0c705ff5bd2936f7d77bb4d5f62a9bef0957aa0fc47cea
+admin_private_key = "d43a2a59e59104117f0c705ff5bd2936f7d77bb4d5f62a9bef0957aa0fc47cea"
 
 def connectTo(chain):
     if chain == 'avax':
