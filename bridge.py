@@ -42,7 +42,6 @@ def scanBlocks(chain):
         print(f"Invalid chain: {chain}")
         return
 
-    # Define chain and contract info
     chain_name = 'avax' if chain == 'source' else 'bsc'
     w3 = connectTo(chain_name)
     contract_data = getContractInfo(chain)
@@ -53,51 +52,68 @@ def scanBlocks(chain):
     latest_block = w3.eth.block_number
     start_block = max(0, latest_block - 4)
 
-    for block in range(start_block, latest_block + 1):
-        if chain == 'source':
+    if chain == 'source':
+        dest_w3 = connectTo("bsc")
+        dest_info = getContractInfo("destination")
+        dest_contract = dest_w3.eth.contract(address=dest_w3.to_checksum_address(dest_info["address"]), abi=dest_info["abi"])
+        nonce = dest_w3.eth.get_transaction_count(admin_address)
+
+        for block in range(start_block, latest_block + 1):
             events = contract.events.Deposit.create_filter(fromBlock=block, toBlock=block).get_all_entries()
             for event in events:
+                tx_hash = event.transactionHash.hex()
+                if tx_hash in processed_txs:
+                    continue
+                processed_txs.add(tx_hash)
+
                 token = event.args.token
                 recipient = event.args.recipient
                 amount = event.args.amount
                 print(f"[SOURCE] Deposit: {amount} of {token} for {recipient}")
 
-                # Wrap tokens on destination
-                dest_w3 = connectTo("bsc")
-                dest_info = getContractInfo("destination")
-                dest_contract = dest_w3.eth.contract(address=dest_w3.to_checksum_address(dest_info["address"]), abi=dest_info["abi"])
-
                 tx = dest_contract.functions.wrap(token, recipient, amount).build_transaction({
                     "from": admin_address,
                     "gas": 300000,
                     "gasPrice": dest_w3.eth.gas_price,
-                    "nonce": dest_w3.eth.get_transaction_count(admin_address),
+                    "nonce": nonce,
                 })
                 signed = dest_w3.eth.account.sign_transaction(tx, private_key=admin_private_key)
-                dest_w3.eth.send_raw_transaction(signed.rawTransaction)
-                print("→ wrap() called on destination")
+                tx_hash = dest_w3.eth.send_raw_transaction(signed.rawTransaction)
+                print(f"→ wrap() sent: {dest_w3.to_hex(tx_hash)}")
+                nonce += 1
 
-        elif chain == 'destination':
+    elif chain == 'destination':
+        src_w3 = connectTo("avax")
+        src_info = getContractInfo("source")
+        src_contract = src_w3.eth.contract(address=src_w3.to_checksum_address(src_info["address"]), abi=src_info["abi"])
+        nonce = src_w3.eth.get_transaction_count(admin_address)
+
+        for block in range(start_block, latest_block + 1):
             events = contract.events.Unwrap.create_filter(fromBlock=block, toBlock=block).get_all_entries()
             for event in events:
+                tx_hash = event.transactionHash.hex()
+                if tx_hash in processed_txs:
+                    continue
+                processed_txs.add(tx_hash)
+
                 underlying = event.args.underlying_token
                 recipient = event.args.to
                 amount = event.args.amount
                 print(f"[DESTINATION] Unwrap: {amount} of {underlying} to {recipient}")
 
-                # Withdraw from source
-                src_w3 = connectTo("avax")
-                src_info = getContractInfo("source")
-                src_contract = src_w3.eth.contract(address=src_w3.to_checksum_address(src_info["address"]), abi=src_info["abi"])
-
                 tx = src_contract.functions.withdraw(underlying, recipient, amount).build_transaction({
                     "from": admin_address,
                     "gas": 300000,
                     "gasPrice": src_w3.eth.gas_price,
-                    "nonce": src_w3.eth.get_transaction_count(admin_address),
+                    "nonce": nonce,
                 })
                 signed = src_w3.eth.account.sign_transaction(tx, private_key=admin_private_key)
-                src_w3.eth.send_raw_transaction(signed.rawTransaction)
-                print("→ withdraw() called on source")
+                tx_hash = src_w3.eth.send_raw_transaction(signed.rawTransaction)
+                print(f"→ withdraw() sent: {src_w3.to_hex(tx_hash)}")
+                nonce += 1
 
-        time.sleep(2)  
+    time.sleep(2)
+
+if __name__ == "__main__":
+    scanBlocks("source")
+    scanBlocks("destination")
