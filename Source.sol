@@ -7,51 +7,45 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 contract Source is AccessControl {
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant WARDEN_ROLE = keccak256("BRIDGE_WARDEN_ROLE");
-	mapping( address => bool) public approved;
-	address[] public tokens;
 
-	event Deposit( address indexed token, address indexed recipient, uint256 amount );
-	event Withdrawal( address indexed token, address indexed recipient, uint256 amount );
-	event Registration( address indexed token );
+    mapping(address => bool) public approved;
+    address[] public tokens;
 
-    constructor( address admin ) {
+    event Deposit(address indexed token, address indexed recipient, uint256 amount);
+    event Withdrawal(address indexed token, address indexed recipient, uint256 amount);
+    event Registration(address indexed token);
+
+    constructor(address admin) {
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(ADMIN_ROLE, admin);
         _grantRole(WARDEN_ROLE, admin);
 
+        // 🟢 Pre-approve the two MCIT tokens
+        approved[0xc677c31AD31F73A5290f5ef067F8CEF8d301e45c] = true;
+        tokens.push(0xc677c31AD31F73A5290f5ef067F8CEF8d301e45c);
+
+        approved[0x0773b81e0524447784CcE1F3808fed6AaA156eC8] = true;
+        tokens.push(0x0773b81e0524447784CcE1F3808fed6AaA156eC8);
     }
-    	function approved(address _token) public pure returns (bool) {
-        	return _token == 0xc677c31AD31F73A5290f5ef067F8CEF8d301e45c || 
-              	 _token == 0x0773b81e0524447784CcE1F3808fed6AaA156eC8;
+
+    function deposit(address _token, address _recipient, uint256 _amount) public {
+        require(approved[_token], "Token not registered");
+        bool success = ERC20(_token).transferFrom(msg.sender, address(this), _amount);
+        require(success, "Transfer failed");
+        emit Deposit(_token, _recipient, _amount);
     }
-	function deposit(address _token, address _recipient, uint256 _amount ) public {
-		//YOUR CODE HERE
-    require(approved[_token], "Token not registered");
-    bool success = ERC20(_token).transferFrom(msg.sender, address(this), _amount);
-    require(success, "Transfer failed");
 
-    emit Deposit(_token, _recipient, _amount);
-	}
+    function withdraw(address _token, address _recipient, uint256 _amount) public onlyRole(WARDEN_ROLE) {
+        require(_recipient != address(0), "Invalid recipient");
+        bool success = ERC20(_token).transfer(_recipient, _amount);
+        require(success, "Withdraw failed");
+        emit Withdrawal(_token, _recipient, _amount);
+    }
 
-	function withdraw(address _token, address _recipient, uint256 _amount ) onlyRole(WARDEN_ROLE) public {
-		//YOUR CODE HERE
-    require(_recipient != address(0), "Invalid recipient"); 
-
-    bool success = ERC20(_token).transfer(_recipient, _amount);
-    require(success, "Withdraw failed"); 
-
-    emit Withdrawal(_token, _recipient, _amount); 
-	}
-
-	function registerToken(address _token) onlyRole(ADMIN_ROLE) public {
-		//YOUR CODE HERE
-    require(!approved[_token], "Token already registered");
-    approved[_token] = true; 
-    tokens.push(_token);
-
-    emit Registration(_token); 
-	}
-
-
+    function registerToken(address _token) public onlyRole(ADMIN_ROLE) {
+        require(!approved[_token], "Token already registered");
+        approved[_token] = true;
+        tokens.push(_token);
+        emit Registration(_token);
+    }
 }
-
