@@ -20,13 +20,13 @@ contract Source is AccessControl {
         _grantRole(ADMIN_ROLE, admin);
         _grantRole(WARDEN_ROLE, admin);
 
-        // 🟢 Pre-approve the two MCIT tokens
-        approved[0xc677c31AD31F73A5290f5ef067F8CEF8d301e45c] = true;
-        tokens.push(0xc677c31AD31F73A5290f5ef067F8CEF8d301e45c);
-
-        approved[0x0773b81e0524447784CcE1F3808fed6AaA156eC8] = true;
-        tokens.push(0x0773b81e0524447784CcE1F3808fed6AaA156eC8);
     }
+
+    approved[0xc677c31AD31F73A5290f5ef067F8CEF8d301e45c] = true;
+    tokens.push(0xc677c31AD31F73A5290f5ef067F8CEF8d301e45c);
+
+    approved[0x0773b81e0524447784CcE1F3808fed6AaA156eC8] = true;
+    tokens.push(0x0773b81e0524447784CcE1F3808fed6AaA156eC8);
 
     function deposit(address _token, address _recipient, uint256 _amount) public {
         require(approved[_token], "Token not registered");
