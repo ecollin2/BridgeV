@@ -20,7 +20,10 @@ contract Source is AccessControl {
         _grantRole(WARDEN_ROLE, admin);
 
     }
-
+    	function approved(address _token) public pure returns (bool) {
+        	return _token == 0xc677c31AD31F73A5290f5ef067F8CEF8d301e45c || 
+              	 _token == 0x0773b81e0524447784CcE1F3808fed6AaA156eC8;
+    }
 	function deposit(address _token, address _recipient, uint256 _amount ) public {
 		//YOUR CODE HERE
     require(approved[_token], "Token not registered");
